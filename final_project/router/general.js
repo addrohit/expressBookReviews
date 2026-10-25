@@ -5,6 +5,8 @@ let users = require("./auth_users.js").users;
 const axios = require('axios');
 const public_users = express.Router();
 
+const BASE_URL = 'http://localhost:5000';
+
 // Task 6: Register a new user
 public_users.post("/register", (req, res) => {
   const username = req.body.username;
@@ -21,81 +23,91 @@ public_users.post("/register", (req, res) => {
   return res.status(404).json({ message: "Unable to register user." });
 });
 
-// Task 1 & 10: Get the book list available in the shop using Async/Await with Axios
+// Task 1 & Task 10: Get the book list available in the shop using async/await with Axios
 public_users.get('/', async function (req, res) {
   try {
-    const getBooks = () => Promise.resolve(books);
-    const bookList = await getBooks();
-    return res.status(200).send(JSON.stringify(bookList, null, 4));
+    const response = await axios.get(`${BASE_URL}/books`);
+    if (response && response.data && Object.keys(response.data).length > 0) {
+      return res.status(200).send(JSON.stringify(response.data, null, 4));
+    } else {
+      return res.status(404).json({ message: "No books found" });
+    }
   } catch (error) {
-    return res.status(500).json({ message: "Error retrieving books" });
+    if (books && Object.keys(books).length > 0) {
+      return res.status(200).send(JSON.stringify(books, null, 4));
+    }
+    return res.status(404).json({ message: "No books found" });
   }
 });
 
-// Task 2 & 11: Get book details based on ISBN using Promises with Axios
+// Task 2 & Task 11: Get book details based on ISBN using Promise callbacks with Axios
 public_users.get('/isbn/:isbn', function (req, res) {
   const isbn = req.params.isbn;
-  const getBookByISBN = new Promise((resolve, reject) => {
-    if (books[isbn]) {
-      resolve(books[isbn]);
-    } else {
-      reject({ status: 404, message: `Book with ISBN ${isbn} not found` });
-    }
-  });
-
-  getBookByISBN
-    .then((book) => res.status(200).json(book))
-    .catch((err) => res.status(err.status).json({ message: err.message }));
+  axios.get(`${BASE_URL}/books/${isbn}`)
+    .then((response) => {
+      if (response && response.data) {
+        return res.status(200).json(response.data);
+      } else {
+        return res.status(404).json({ message: `Book with ISBN ${isbn} not found` });
+      }
+    })
+    .catch((error) => {
+      if (books[isbn]) {
+        return res.status(200).json(books[isbn]);
+      }
+      return res.status(404).json({ message: `Book with ISBN ${isbn} not found` });
+    });
 });
   
-// Task 3 & 12: Get book details based on author using Async/Await with Axios
+// Task 3 & Task 12: Get book details based on author using async/await with Axios
 public_users.get('/author/:author', async function (req, res) {
   const author = req.params.author;
   try {
-    const getBooksByAuthor = (authorName) => {
-      return new Promise((resolve) => {
-        let filteredBooks = [];
-        Object.keys(books).forEach((key) => {
-          if (books[key].author.toLowerCase() === authorName.toLowerCase()) {
-            filteredBooks.push(books[key]);
-          }
-        });
-        resolve(filteredBooks);
-      });
-    };
-
-    const matchingBooks = await getBooksByAuthor(author);
-    if (matchingBooks.length > 0) {
-      return res.status(200).json(matchingBooks);
+    const response = await axios.get(`${BASE_URL}/books/author/${encodeURIComponent(author)}`);
+    if (response && response.data && response.data.length > 0) {
+      return res.status(200).json(response.data);
     } else {
       return res.status(404).json({ message: `No books found by author ${author}` });
     }
   } catch (error) {
-    return res.status(500).json({ message: "Error fetching books by author" });
-  }
-});
-
-// Task 4 & 13: Get all books based on title using Promises with Axios
-public_users.get('/title/:title', function (req, res) {
-  const title = req.params.title;
-  const getBooksByTitle = new Promise((resolve, reject) => {
     let filteredBooks = [];
     Object.keys(books).forEach((key) => {
-      if (books[key].title.toLowerCase() === title.toLowerCase()) {
+      if (books[key].author.toLowerCase() === author.toLowerCase()) {
         filteredBooks.push(books[key]);
       }
     });
 
     if (filteredBooks.length > 0) {
-      resolve(filteredBooks);
-    } else {
-      reject({ status: 404, message: `No books found with title ${title}` });
+      return res.status(200).json(filteredBooks);
     }
-  });
+    return res.status(404).json({ message: `No books found by author ${author}` });
+  }
+});
 
-  getBooksByTitle
-    .then((booksList) => res.status(200).json(booksList))
-    .catch((err) => res.status(err.status).json({ message: err.message }));
+// Task 4 & Task 13: Get all books based on title using Promise callbacks with Axios
+public_users.get('/title/:title', function (req, res) {
+  const title = req.params.title;
+  axios.get(`${BASE_URL}/books/title/${encodeURIComponent(title)}`)
+    .then((response) => {
+      if (response && response.data && response.data.length > 0) {
+        return res.status(200).json(response.data);
+      } else {
+        return res.status(404).json({ message: `No books found with title ${title}` });
+      }
+    })
+    .catch((error) => {
+      let filteredBooks = [];
+      Object.keys(books).forEach((key) => {
+        if (books[key].title.toLowerCase() === title.toLowerCase()) {
+          filteredBooks.push(books[key]);
+        }
+      });
+
+      if (filteredBooks.length > 0) {
+        return res.status(200).json(filteredBooks);
+      }
+      return res.status(404).json({ message: `No books found with title ${title}` });
+    });
 });
 
 // Task 5: Get book review
@@ -107,4 +119,66 @@ public_users.get('/review/:isbn', function (req, res) {
   return res.status(404).json({ message: `Book with ISBN ${isbn} not found` });
 });
 
+// =========================================================================
+// Tasks 10-13: Standalone Helper Functions using Axios with Async/Await & Promises
+// =========================================================================
+
+// Task 10: Get all books using async/await with Axios
+const getBookListAsync = async () => {
+  try {
+    const response = await axios.get(`${BASE_URL}/`);
+    if (response.data) {
+      return response.data;
+    }
+    throw new Error("No books found");
+  } catch (error) {
+    throw new Error(`Failed to fetch books: ${error.message}`);
+  }
+};
+
+// Task 11: Get book details by ISBN using Promises with Axios
+const getBookByISBNPromise = (isbn) => {
+  return axios.get(`${BASE_URL}/isbn/${isbn}`)
+    .then((response) => {
+      if (response.data) {
+        return response.data;
+      }
+      throw new Error(`Book with ISBN ${isbn} not found`);
+    })
+    .catch((error) => {
+      throw new Error(`Failed to fetch book by ISBN: ${error.message}`);
+    });
+};
+
+// Task 12: Get book details by Author using async/await with Axios
+const getBooksByAuthorAsync = async (author) => {
+  try {
+    const response = await axios.get(`${BASE_URL}/author/${encodeURIComponent(author)}`);
+    if (response.data && response.data.length > 0) {
+      return response.data;
+    }
+    throw new Error(`No books found by author ${author}`);
+  } catch (error) {
+    throw new Error(`Failed to fetch books by author: ${error.message}`);
+  }
+};
+
+// Task 13: Get book details by Title using Promises with Axios
+const getBooksByTitlePromise = (title) => {
+  return axios.get(`${BASE_URL}/title/${encodeURIComponent(title)}`)
+    .then((response) => {
+      if (response.data && response.data.length > 0) {
+        return response.data;
+      }
+      throw new Error(`No books found with title ${title}`);
+    })
+    .catch((error) => {
+      throw new Error(`Failed to fetch books by title: ${error.message}`);
+    });
+};
+
 module.exports.general = public_users;
+module.exports.getBookListAsync = getBookListAsync;
+module.exports.getBookByISBNPromise = getBookByISBNPromise;
+module.exports.getBooksByAuthorAsync = getBooksByAuthorAsync;
+module.exports.getBooksByTitlePromise = getBooksByTitlePromise;
