@@ -39,7 +39,7 @@ regd_users.post("/login", (req, res) => {
   }
 });
 
-// Task 8: Add or modify a book review
+// Task 8: Add or modify a book review - displays message and reviews
 regd_users.put("/auth/review/:isbn", (req, res) => {
   const isbn = req.params.isbn;
   const review = req.query.review || req.body.review;
@@ -47,7 +47,10 @@ regd_users.put("/auth/review/:isbn", (req, res) => {
 
   if (books[isbn]) {
     books[isbn].reviews[username] = review;
-    return res.status(200).send("The review for the book with ISBN " + isbn + " has been added/updated.");
+    return res.status(200).json({
+      message: `The review for the book with ISBN ${isbn} has been added/updated.`,
+      reviews: books[isbn].reviews
+    });
   }
   return res.status(404).json({ message: `Book with ISBN ${isbn} not found` });
 });
